@@ -26,28 +26,43 @@ def parse_question(question):
     investment = 8.65  # default
     demo_rate = 0.0
     growth_rate = 0.75
+    explanation = []
 
-    match = re.search(r"increase.*(?:\$)?(\d+(?:\.\d+)?) ?m", question)
+    match = re.search(r"(?:increase|add).*?(\d+(?:\.\d+)?) ?m", question)
     if match:
-        investment += float(match.group(1))
+        delta = float(match.group(1))
+        investment += delta
+        explanation.append(f"Increased investment by ${delta}M")
     elif "double" in question:
         investment *= 2
+        explanation.append("Doubled the base investment")
 
-    if "1 demo.*2 build" in question or "one.*two" in question:
+    if re.search(r"1.*demo.*2.*build|one.*demo.*two", question):
         demo_rate = 0.5
-    elif "2 demo.*1 build" in question or "two.*one" in question:
+        explanation.append("Set demo rate to 0.5 (1 demo per 2 builds)")
+    elif re.search(r"2.*demo.*1.*build|two.*demo.*one", question):
         demo_rate = 2.0
+        explanation.append("Set demo rate to 2.0 (2 demos per 1 build)")
+    elif "no demo" in question:
+        demo_rate = 0.0
+        explanation.append("No demolition assumed")
 
     match = re.search(r"fci.*(?:under|below) (0\.\d+)", question)
     target_fci = float(match.group(1)) if match else None
+    if target_fci:
+        explanation.append(f"Target FCI of < {target_fci}")
 
-    return investment, demo_rate, growth_rate, target_fci
+    return investment, demo_rate, growth_rate, target_fci, explanation
 
 # --- User Input ---
-question = st.text_input("Ask your question:", "What if we double our investment and demolish 1 building for every 2 built?")
+question = st.text_input("Ask your question:")
 
 if question:
-    investment, demo_rate, growth_rate, target_fci = parse_question(question)
+    investment, demo_rate, growth_rate, target_fci, explanation = parse_question(question)
+
+    st.markdown("### 🧠 Parsed Assumptions:")
+    for item in explanation:
+        st.markdown(f"- {item}")
 
     years = np.arange(2023, 2043)
     initial_dm = 429e6
@@ -81,6 +96,6 @@ if question:
     if demo_rate > 0:
         st.markdown(f"- Demo strategy assumes **${demo_rate * 2:.1f}M/year** in cost avoidance.")
     if target_fci:
-        st.markdown(f"- ⚠️ *Target FCI of {target_fci} not yet directly modeled.*")
+        st.markdown(f"- ⚠️ *Target FCI of {target_fci} not directly modeled yet.*")
 
     st.caption("Demo powered by ChatGPT ✨ Live semantic interface for campus planning.")
